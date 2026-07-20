@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="app-header glass-panel">
       <div className="brand-section">
         <div className="brand-icon">
-          <ShoppingBag size={26} />
+          <ShoppingBag size={24} />
         </div>
         <div>
           <h1 className="brand-title">{shopInfo.name}</h1>
@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`nav-btn ${activeTab === 'billing' ? 'active' : ''}`}
           onClick={() => setActiveTab('billing')}
         >
-          <Receipt size={18} />
+          <Receipt size={16} />
           <span>New Billing</span>
         </button>
 
@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`nav-btn ${activeTab === 'reports' ? 'active' : ''}`}
           onClick={() => setActiveTab('reports')}
         >
-          <BarChart3 size={18} />
+          <BarChart3 size={16} />
           <span>Daily Reports</span>
         </button>
 
@@ -56,24 +56,26 @@ export const Header: React.FC<HeaderProps> = ({
           className={`nav-btn ${activeTab === 'products' ? 'active' : ''}`}
           onClick={() => setActiveTab('products')}
         >
-          <Package size={18} />
+          <Package size={16} />
           <span>Products</span>
         </button>
       </nav>
 
       <div className="header-actions">
-        <div className="badge badge-emerald" style={{ gap: '6px', padding: '0.4rem 0.8rem', fontSize: '0.825rem' }}>
+        <div className="badge badge-emerald" style={{ gap: '5px', padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}>
           <Sparkles size={14} />
           <span>Today: <strong>{shopInfo.currencySymbol}{todaySalesTotal.toLocaleString('en-IN')}</strong> ({todayInvoicesCount} bills)</span>
         </div>
 
-        <button className="icon-btn" onClick={onOpenSettings} title="Store Settings">
-          <Settings size={19} />
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="icon-btn" onClick={onOpenSettings} title="Store Settings">
+            <Settings size={18} />
+          </button>
 
-        <button className="icon-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
-          {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
-        </button>
+          <button className="icon-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </div>
     </header>
   );

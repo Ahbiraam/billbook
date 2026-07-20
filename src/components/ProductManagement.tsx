@@ -70,29 +70,29 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Top Controls */}
       <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Package size={24} className="text-indigo-400" />
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Product Catalog & Inventory Management</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Add products manually, set stock levels and pricing rates
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Product Catalog & Inventory</h2>
+            <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+              Add products, set stock levels and pricing rates
             </p>
           </div>
         </div>
 
-        <button className="btn btn-primary" onClick={handleOpenAddModal}>
+        <button className="btn btn-primary" onClick={handleOpenAddModal} style={{ width: 'auto' }}>
           <Plus size={18} />
-          <span>Add New Product Manually</span>
+          <span>Add New Product</span>
         </button>
       </div>
 
       {/* Filter Bar & Product List */}
       <div className="glass-panel" style={{ padding: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ position: 'relative', width: '280px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem', marginBottom: '1rem' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
             <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
@@ -104,12 +104,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: 'auto' }}>
             <Filter size={16} style={{ color: 'var(--text-secondary)' }} />
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Category:</span>
+            <span style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>Category:</span>
             <select
               className="form-select"
-              style={{ width: 'auto', padding: '0.45rem 0.8rem' }}
+              style={{ width: 'auto', padding: '0.4rem 0.75rem' }}
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
@@ -140,9 +140,9 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
-                    <p style={{ fontWeight: 600, fontSize: '1rem' }}>No products found in catalog.</p>
-                    <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                      Click <strong>"Add New Product Manually"</strong> above to add your products.
+                    <p style={{ fontWeight: 600, fontSize: '0.95rem' }}>No products found in catalog.</p>
+                    <p style={{ fontSize: '0.825rem', marginTop: '0.25rem' }}>
+                      Click <strong>"Add New Product"</strong> above to add products.
                     </p>
                   </td>
                 </tr>
@@ -197,8 +197,8 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
-              <h3 style={{ fontWeight: 700 }}>
-                {currentProduct.id ? 'Edit Product Details' : 'Add Product Manually'}
+              <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                {currentProduct.id ? 'Edit Product Details' : 'Add New Product'}
               </h3>
               <button className="icon-btn" onClick={() => setIsEditing(false)}>
                 <X size={20} />
@@ -206,7 +206,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Item Code / SKU</label>
