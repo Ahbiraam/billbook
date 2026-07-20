@@ -1,0 +1,15 @@
+{
+  "shopInfo": {
+    "name": "Nel Rich Foods",
+    "tagline": "Fresh & Premium Quality Foods",
+    "address": "Poyya, Kodungallur",
+    "cityStatePincode": "Thrissur, Kerala",
+    "phone": "6235443930 / 9292493930",
+    "email": "nelrichfoods@gmail.com",
+    "invoicePrefix": "NRF",
+    "currencySymbol": "₹",
+    "termsAndConditions": "Thank you for choosing Nel Rich Foods! Goods once sold can be exchanged with original invoice within 7 days."
+  },
+  "products": [],
+  "invoices": []
+}

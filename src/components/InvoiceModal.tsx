@@ -1,0 +1,295 @@
+import React, { useState } from 'react';
+import type { Invoice, ShopInfo } from '../types';
+import { Printer, X, CheckCircle, FileText, Smartphone, Send, Copy, Check } from 'lucide-react';
+
+interface InvoiceModalProps {
+  invoice: Invoice | null;
+  shopInfo: ShopInfo;
+  onClose: () => void;
+}
+
+export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, shopInfo, onClose }) => {
+  const [printLayout, setPrintLayout] = useState<'A4' | 'Thermal'>('A4');
+  const [whatsappPhone, setWhatsappPhone] = useState<string>('');
+  const [showPhonePrompt, setShowPhonePrompt] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  if (!invoice) return null;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getCleanPhone = (phoneStr: string): string => {
+    let cleaned = phoneStr.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      cleaned = '91' + cleaned;
+    }
+    return cleaned;
+  };
+
+  const buildWhatsAppMessage = (): string => {
+    const itemsList = invoice.items
+      .map(
+        (it, idx) =>
+          `${idx + 1}. *${it.name}* (${it.quantity} ${it.unit}) - ${shopInfo.currencySymbol}${it.lineTotal.toFixed(2)}`
+      )
+      .join('\n');
+
+    return `🧾 *${shopInfo.name} - Bill Receipt*
+-----------------------------------
+*Bill No:* ${invoice.invoiceNumber}
+*Date:* ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}
+*Customer:* ${invoice.customer.name || 'Valued Customer'}
+
+*Itemized Bill:*
+${itemsList}
+
+-----------------------------------
+💰 *Total Payable: ${shopInfo.currencySymbol}${invoice.grandTotal.toFixed(2)}*
+💳 *Payment Mode:* ${invoice.paymentMethod}
+
+*Store Location:* ${shopInfo.address}, ${shopInfo.cityStatePincode}
+*Contact:* ${shopInfo.phone}
+
+_Thank you for shopping with ${shopInfo.name}!_`;
+  };
+
+  const handleSendWhatsApp = (targetPhone?: string) => {
+    const rawPhone = targetPhone || invoice.customer.phone || whatsappPhone;
+    const cleanPhone = getCleanPhone(rawPhone);
+
+    if (!cleanPhone) {
+      setShowPhonePrompt(true);
+      return;
+    }
+
+    const messageText = buildWhatsAppMessage();
+    const encodedText = encodeURIComponent(messageText);
+
+    // Primary: wa.me link (works on mobile app & desktop WhatsApp Web)
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+
+    // Fallback: web.whatsapp.com for desktop
+    const waWebUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+
+    // Try opening wa.me URL
+    const win = window.open(waUrl, '_blank');
+    if (!win) {
+      window.location.href = waWebUrl;
+    }
+    setShowPhonePrompt(false);
+  };
+
+  const handleCopyMessage = () => {
+    const messageText = buildWhatsAppMessage();
+    navigator.clipboard.writeText(messageText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: printLayout === 'Thermal' ? '480px' : '820px' }}>
+        {/* Modal Header */}
+        <div className="modal-header no-print">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckCircle size={22} className="text-emerald-400" />
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Invoice Generated Successfully</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                {invoice.invoiceNumber} | {new Date(invoice.createdAt).toLocaleString('en-IN')}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              className={`btn btn-sm ${printLayout === 'A4' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setPrintLayout('A4')}
+            >
+              <FileText size={15} /> A4 Bill
+            </button>
+            <button
+              className={`btn btn-sm ${printLayout === 'Thermal' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setPrintLayout('Thermal')}
+            >
+              <Smartphone size={15} /> Thermal Receipt
+            </button>
+            <button className="icon-btn" onClick={onClose} style={{ marginLeft: '0.5rem' }}>
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Body: Printable Invoice View */}
+        <div className="modal-body invoice-printable-wrapper" style={{ background: '#f8fafc', padding: '1.5rem' }}>
+          <div className={`invoice-sheet ${printLayout === 'Thermal' ? 'thermal' : ''}`}>
+            {/* Header Section */}
+            <div className="invoice-header-row">
+              <div>
+                <h2 style={{ fontSize: printLayout === 'Thermal' ? '1.2rem' : '1.6rem', fontWeight: 800, color: '#0f172a' }}>
+                  {shopInfo.name}
+                </h2>
+                <p style={{ color: '#475569', fontSize: '0.85rem' }}>{shopInfo.address}</p>
+                <p style={{ color: '#475569', fontSize: '0.85rem' }}>{shopInfo.cityStatePincode}</p>
+                <p style={{ color: '#475569', fontSize: '0.85rem' }}>Ph: {shopInfo.phone}</p>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ background: '#e0e7ff', color: '#3730a3', padding: '0.2rem 0.8rem', borderRadius: '4px', fontWeight: 700, display: 'inline-block', marginBottom: '0.5rem' }}>
+                  BILL RECEIPT
+                </div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{invoice.invoiceNumber}</h3>
+                <p style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                  Date: {new Date(invoice.createdAt).toLocaleDateString('en-IN')}
+                </p>
+                <p style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                  Payment Mode: <strong>{invoice.paymentMethod}</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            <div style={{ background: '#f1f5f9', padding: '0.8rem 1rem', borderRadius: '6px', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>
+                Billed To:
+              </p>
+              <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                {invoice.customer.name || 'Walk-in Customer'}
+              </h4>
+              {invoice.customer.phone && (
+                <p style={{ fontSize: '0.85rem', color: '#334155' }}>Contact: {invoice.customer.phone}</p>
+              )}
+              {invoice.customer.address && (
+                <p style={{ fontSize: '0.85rem', color: '#334155' }}>Address: {invoice.customer.address}</p>
+              )}
+            </div>
+
+            {/* Invoice Line Items Table */}
+            <table className="invoice-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item Description</th>
+                  <th style={{ textAlign: 'right' }}>Price</th>
+                  <th style={{ textAlign: 'center' }}>Qty</th>
+                  <th style={{ textAlign: 'right' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.items.map((item, index) => (
+                  <tr key={item.id}>
+                    <td>{index + 1}</td>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{item.name}</span>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Code: {item.code}</div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {shopInfo.currencySymbol}{item.selectedPrice.toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {item.quantity} {item.unit}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                      {shopInfo.currencySymbol}{item.lineTotal.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Calculation Totals Breakdown */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #e5e7eb' }}>
+              <div style={{ width: '55%' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>
+                  Terms & Conditions:
+                </p>
+                <p style={{ fontSize: '0.75rem', color: '#64748b', lineHeight: 1.4 }}>
+                  {shopInfo.termsAndConditions}
+                </p>
+                {invoice.notes && (
+                  <p style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.5rem' }}>
+                    Note: {invoice.notes}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ width: '40%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0 0', fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', borderTop: '1px solid #cbd5e1', marginTop: '0.4rem' }}>
+                  <span>Total Bill:</span>
+                  <span>{shopInfo.currencySymbol}{invoice.grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Signature */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '2.5rem', paddingTop: '1rem' }}>
+              <div style={{ textAlign: 'center', width: '150px' }}>
+                <p style={{ fontSize: '0.75rem', color: '#64748b' }}>Customer Signature</p>
+              </div>
+              <div style={{ textAlign: 'center', width: '200px' }}>
+                <div style={{ borderBottom: '1px solid #94a3b8', marginBottom: '0.4rem' }}></div>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>Authorized Signatory</p>
+                <p style={{ fontSize: '0.7rem', color: '#64748b' }}>{shopInfo.name}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer Actions */}
+        <div className="modal-footer no-print" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {showPhonePrompt ? (
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <input
+                  type="tel"
+                  placeholder="Enter Mobile Number"
+                  className="form-input"
+                  style={{ width: '200px', padding: '0.45rem 0.75rem' }}
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                />
+                <button
+                  className="btn btn-emerald btn-sm"
+                  onClick={() => handleSendWhatsApp(whatsappPhone)}
+                  style={{ background: '#25D366', color: '#fff' }}
+                >
+                  <Send size={14} /> Send
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn btn-emerald"
+                onClick={() => handleSendWhatsApp()}
+                style={{ background: '#25D366', color: '#fff' }}
+              >
+                <Send size={18} />
+                <span>Send WhatsApp</span>
+              </button>
+            )}
+
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleCopyMessage}
+              title="Copy formatted bill text to paste manually in WhatsApp"
+            >
+              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+            <button className="btn btn-primary" onClick={handlePrint}>
+              <Printer size={18} />
+              <span>Print / Save PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
