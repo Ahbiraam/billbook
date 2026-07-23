@@ -146,6 +146,14 @@ export const App: React.FC = () => {
     showToast('Store profile updated!');
   };
 
+  // Update Invoice (Status or Payment Method change)
+  const handleUpdateInvoice = (updatedInvoice: Invoice) => {
+    const updated = invoices.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv));
+    setInvoices(updated);
+    saveInvoices(updated);
+    showToast(`Bill ${updatedInvoice.invoiceNumber} payment status updated!`);
+  };
+
   // Calculate Today's Metrics for Header Badge
   const todayStr = new Date().toISOString().split('T')[0];
   const todayInvoices = invoices.filter((i) => i.dateString === todayStr && i.status !== 'Cancelled');
@@ -178,8 +186,11 @@ export const App: React.FC = () => {
         {activeTab === 'reports' && (
           <DailyReports
             invoices={invoices}
+            products={products}
             shopInfo={shopInfo}
             onViewInvoice={(inv) => setSelectedInvoiceForModal(inv)}
+            onUpdateInvoice={handleUpdateInvoice}
+            onSaveProduct={handleSaveProduct}
           />
         )}
 

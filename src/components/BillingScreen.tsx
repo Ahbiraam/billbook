@@ -223,7 +223,7 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({
             {/* 3. QUANTITY DROPDOWN & STEPPER */}
             <div className="form-group">
               <label className="form-label">Quantity Selector</label>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <div className="qty-selector-container">
                 <select
                   className="form-select"
                   value={[1, 2, 3, 4, 5, 10, 20, 50].includes(quantity) ? quantity : 'custom'}
@@ -248,8 +248,7 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({
                 <input
                   type="number"
                   min="1"
-                  className="form-input"
-                  style={{ width: '85px' }}
+                  className="form-input qty-direct-input"
                   value={quantity}
                   disabled={!currentProduct}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
@@ -259,8 +258,8 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          <div className="selection-action-row">
+            <div className="line-total-display">
               {currentProduct && (
                 <span>
                   Line Total: <strong style={{ color: 'var(--accent-emerald)', fontSize: '1.05rem' }}>
@@ -272,9 +271,8 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({
 
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary add-bill-btn"
               disabled={!currentProduct}
-              style={{ padding: '0.6rem 1.5rem' }}
             >
               <Plus size={18} />
               <span>Add to Bill</span>

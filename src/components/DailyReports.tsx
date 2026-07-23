@@ -1,44 +1,84 @@
-import React, { useState } from 'react';
-import type { Invoice, ShopInfo } from '../types';
+import React, { useState, useRef } from 'react';
+import type { Invoice, ShopInfo, Product } from '../types';
 import { getDailyReportSummary } from '../utils/storage';
-import { Calendar, DollarSign, FileText, TrendingUp, Search, Eye, Award, Wallet, Smartphone, CreditCard, Clock, Printer, Send, X, Check, Copy } from 'lucide-react';
+import { Calendar, DollarSign, FileText, TrendingUp, Search, Eye, Award, Wallet, Smartphone, CreditCard, Clock, Send, X, Check, Copy, Download, FileDown, Loader2, Package, Plus } from 'lucide-react';
+import { generateAndDownloadPdf } from '../utils/pdfGenerator';
 
 interface DailyReportsProps {
   invoices: Invoice[];
+  products?: Product[];
   shopInfo: ShopInfo;
   onViewInvoice: (invoice: Invoice) => void;
+  onUpdateInvoice?: (updatedInvoice: Invoice) => void;
+  onSaveProduct?: (product: Product) => void;
 }
 
-export const DailyReports: React.FC<DailyReportsProps> = ({ invoices, shopInfo, onViewInvoice }) => {
+export const DailyReports: React.FC<DailyReportsProps> = ({
+  invoices,
+  products = [],
+  shopInfo,
+  onViewInvoice,
+  onUpdateInvoice,
+  onSaveProduct,
+}) => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [itemSearchQuery, setItemSearchQuery] = useState<string>('');
+  const [paymentFilter, setPaymentFilter] = useState<'All' | 'Cash' | 'UPI' | 'Card' | 'Credit'>('All');
   const [showPdfModal, setShowPdfModal] = useState<boolean>(false);
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+
+  const reportSheetRef = useRef<HTMLDivElement>(null);
 
   const report = getDailyReportSummary(invoices, selectedDate);
 
-  // Filter invoices list by selected date and search text
+  // Filter invoices list by selected date, search text, and payment mode view filter
   const filteredInvoices = invoices.filter((inv) => {
     const matchesDate = inv.dateString === selectedDate;
     const matchesSearch =
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inv.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (inv.customer.phone && inv.customer.phone.includes(searchQuery));
-    return matchesDate && matchesSearch;
+    const matchesPayment = paymentFilter === 'All' || inv.paymentMethod === paymentFilter;
+    return matchesDate && matchesSearch && matchesPayment;
   });
+
+  const handleMarkAsPaid = (inv: Invoice) => {
+    const isCash = window.confirm(`Clear Pay Later balance for Bill ${inv.invoiceNumber}?\n\nOK = Received in Cash\nCancel = Received via UPI / QR Code`);
+    const finalMethod = isCash ? 'Cash' : 'UPI';
+    if (onUpdateInvoice) {
+      onUpdateInvoice({
+        ...inv,
+        status: 'Paid',
+        paymentMethod: finalMethod,
+      });
+    }
+  };
 
   const avgOrderValue = report.totalInvoices > 0 ? report.totalSales / report.totalInvoices : 0;
 
-  // Print Professional PDF Report
+  // Open PDF Report Modal
   const handlePrintPdfReport = () => {
     setShowPdfModal(true);
   };
 
-  // Trigger browser print for PDF modal
-  const handleTriggerPrint = () => {
-    window.print();
+  // Direct PDF Download Handler
+  const handleDownloadDailyPdf = async () => {
+    if (!reportSheetRef.current || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    try {
+      await generateAndDownloadPdf({
+        element: reportSheetRef.current,
+        filename: `Daily_Sales_Report_${selectedDate}.pdf`,
+      });
+    } catch (err) {
+      alert('Failed to generate daily report PDF.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   // WhatsApp Message Handler
@@ -134,8 +174,8 @@ _Thank you for choosing ${shopInfo.name}!_`;
           </div>
 
           <button className="btn btn-primary btn-sm" onClick={handlePrintPdfReport}>
-            <Printer size={16} />
-            <span>Generate & Print Professional PDF Report</span>
+            <Download size={16} />
+            <span>Download Daily PDF Report</span>
           </button>
         </div>
       </div>
@@ -186,43 +226,59 @@ _Thank you for choosing ${shopInfo.name}!_`;
             <span>Payment Mode Breakdown</span>
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+            <div
+              className={`payment-breakdown-item ${paymentFilter === 'Cash' ? 'active-filter' : ''}`}
+              onClick={() => setPaymentFilter(paymentFilter === 'Cash' ? 'All' : 'Cash')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: paymentFilter === 'Cash' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0,0,0,0.15)', border: paymentFilter === 'Cash' ? '1px solid var(--accent-emerald)' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Wallet size={20} style={{ color: '#34d399' }} />
-                <span>Cash Collection</span>
+                <span>Cash in Hand Collection</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#34d399' }}>
                 {shopInfo.currencySymbol}{report.cashSales.toLocaleString('en-IN')}
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)' }}>
+            <div
+              className={`payment-breakdown-item ${paymentFilter === 'UPI' ? 'active-filter' : ''}`}
+              onClick={() => setPaymentFilter(paymentFilter === 'UPI' ? 'All' : 'UPI')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: paymentFilter === 'UPI' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0,0,0,0.15)', border: paymentFilter === 'UPI' ? '1px solid #38bdf8' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Smartphone size={20} style={{ color: '#38bdf8' }} />
                 <span>UPI / QR Digital Payment</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#38bdf8' }}>
                 {shopInfo.currencySymbol}{report.upiSales.toLocaleString('en-IN')}
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)' }}>
+            <div
+              className={`payment-breakdown-item ${paymentFilter === 'Card' ? 'active-filter' : ''}`}
+              onClick={() => setPaymentFilter(paymentFilter === 'Card' ? 'All' : 'Card')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: paymentFilter === 'Card' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(0,0,0,0.15)', border: paymentFilter === 'Card' ? '1px solid #a78bfa' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <CreditCard size={20} style={{ color: '#a78bfa' }} />
                 <span>Card Swipe Payment</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#a78bfa' }}>
                 {shopInfo.currencySymbol}{report.cardSales.toLocaleString('en-IN')}
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)' }}>
+            <div
+              className={`payment-breakdown-item ${paymentFilter === 'Credit' ? 'active-filter' : ''}`}
+              onClick={() => setPaymentFilter(paymentFilter === 'Credit' ? 'All' : 'Credit')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: paymentFilter === 'Credit' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(0,0,0,0.15)', border: paymentFilter === 'Credit' ? '1px solid #f59e0b' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Clock size={20} style={{ color: '#fbbf24' }} />
-                <span>Credit / Pay Later</span>
+                <span>Pay Later / Credit Ledger</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#fbbf24' }}>
                 {shopInfo.currencySymbol}{report.creditSales.toLocaleString('en-IN')}
               </span>
             </div>
@@ -269,13 +325,179 @@ _Thank you for choosing ${shopInfo.name}!_`;
         </div>
       </div>
 
+      {/* DAILY PRODUCT INVENTORY & PIECE TRACKING PANEL */}
+      <div className="glass-panel" style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+          <div>
+            <h3 className="card-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <Package size={20} className="text-emerald-400" />
+              <span>Daily Product Inventory & Piece Tracking ({products.length} Products)</span>
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              Itemized pieces sold, daily product revenue & live stock levels for {selectedDate}
+            </p>
+          </div>
+
+          <div style={{ position: 'relative', width: '260px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-input"
+              style={{ paddingLeft: '2.2rem' }}
+              placeholder="Search product inventory..."
+              value={itemSearchQuery}
+              onChange={(e) => setItemSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="table-container">
+          <table className="custom-table">
+            <thead>
+              <tr>
+                <th>SKU Code</th>
+                <th>Product Name</th>
+                <th>Piece Rate</th>
+                <th style={{ textAlign: 'center' }}>Billed Pieces Sold Today</th>
+                <th style={{ textAlign: 'right' }}>Daily Item Revenue</th>
+                <th style={{ textAlign: 'center' }}>Live Piece Stock</th>
+                {onSaveProduct && <th style={{ textAlign: 'center' }}>Quick Restock</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+                    No products found in store catalog.
+                  </td>
+                </tr>
+              ) : (
+                products
+                  .filter((p) =>
+                    p.name.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
+                    p.code.toLowerCase().includes(itemSearchQuery.toLowerCase())
+                  )
+                  .map((prod) => {
+                    // Calculate item's pieces sold & revenue on selected date
+                    const targetInvoices = invoices.filter((i) => i.dateString === selectedDate && i.status !== 'Cancelled');
+                    let soldPieces = 0;
+                    let dailyRevenue = 0;
+
+                    targetInvoices.forEach((inv) => {
+                      inv.items.forEach((item) => {
+                        if (item.productId === prod.id) {
+                          soldPieces += item.quantity;
+                          dailyRevenue += item.lineTotal;
+                        }
+                      });
+                    });
+
+                    return (
+                      <tr key={prod.id}>
+                        <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>{prod.code}</td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{prod.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Category: {prod.category}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{shopInfo.currencySymbol}{prod.price} / {prod.unit}</div>
+                          {prod.retailPrice && <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>Retail: {shopInfo.currencySymbol}{prod.retailPrice}</div>}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {soldPieces > 0 ? (
+                            <span className="badge badge-emerald" style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                              {soldPieces} {prod.unit} Billed
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>0 {prod.unit}</span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: soldPieces > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                          {shopInfo.currencySymbol}{dailyRevenue.toFixed(2)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className={`badge ${prod.stock > 10 ? 'badge-emerald' : prod.stock > 0 ? 'badge-amber' : 'badge-indigo'}`} style={{ fontWeight: 700 }}>
+                            {prod.stock} {prod.unit} remaining
+                          </span>
+                        </td>
+                        {onSaveProduct && (
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                onClick={() => onSaveProduct({ ...prod, stock: prod.stock + 10 })}
+                                title="Quickly add +10 pieces stock"
+                              >
+                                <Plus size={12} /> 10 {prod.unit}
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                onClick={() => onSaveProduct({ ...prod, stock: prod.stock + 50 })}
+                                title="Quickly add +50 pieces stock"
+                              >
+                                <Plus size={12} /> 50 {prod.unit}
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Invoice History & Search Table */}
       <div className="glass-panel" style={{ padding: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-          <h3 className="card-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-            <FileText size={20} className="text-indigo-400" />
-            <span>Daily Bills Register ({filteredInvoices.length})</span>
-          </h3>
+          <div>
+            <h3 className="card-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <FileText size={20} className="text-indigo-400" />
+              <span>
+                {paymentFilter === 'All' && `Daily Bills Register (${filteredInvoices.length})`}
+                {paymentFilter === 'Cash' && `💵 Cash in Hand Bills (${filteredInvoices.length})`}
+                {paymentFilter === 'UPI' && `📱 UPI Digital Bills (${filteredInvoices.length})`}
+                {paymentFilter === 'Card' && `💳 Card Swipe Bills (${filteredInvoices.length})`}
+                {paymentFilter === 'Credit' && `⏳ Pay Later Credit Bills (${filteredInvoices.length})`}
+              </span>
+            </h3>
+
+            {/* Quick View Filter Tabs */}
+            <div className="nav-tabs" style={{ marginTop: '0.6rem', border: 'none', background: 'rgba(0,0,0,0.15)', display: 'inline-flex' }}>
+              <button
+                className={`nav-btn ${paymentFilter === 'All' ? 'active' : ''}`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
+                onClick={() => setPaymentFilter('All')}
+              >
+                All Bills ({invoices.filter(i => i.dateString === selectedDate).length})
+              </button>
+              <button
+                className={`nav-btn ${paymentFilter === 'Cash' ? 'active' : ''}`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
+                onClick={() => setPaymentFilter('Cash')}
+              >
+                💵 Cash in Hand
+              </button>
+              <button
+                className={`nav-btn ${paymentFilter === 'UPI' ? 'active' : ''}`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
+                onClick={() => setPaymentFilter('UPI')}
+              >
+                📱 UPI Digital
+              </button>
+              <button
+                className={`nav-btn ${paymentFilter === 'Credit' ? 'active' : ''}`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
+                onClick={() => setPaymentFilter('Credit')}
+              >
+                ⏳ Pay Later
+              </button>
+            </div>
+          </div>
 
           <div style={{ position: 'relative', width: '280px' }}>
             <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -297,7 +519,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
                 <th>Bill #</th>
                 <th>Time</th>
                 <th>Customer Name</th>
-                <th>Payment</th>
+                <th>Payment Mode</th>
                 <th>Items</th>
                 <th style={{ textAlign: 'right' }}>Total Amount</th>
                 <th style={{ textAlign: 'center' }}>Actions</th>
@@ -307,7 +529,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
               {filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
-                    No matching bills found for {selectedDate}.
+                    No matching {paymentFilter !== 'All' ? paymentFilter : ''} bills found for {selectedDate}.
                   </td>
                 </tr>
               ) : (
@@ -319,8 +541,12 @@ _Thank you for choosing ${shopInfo.name}!_`;
                     </td>
                     <td>{inv.customer.name}</td>
                     <td>
-                      <span className={`badge ${inv.paymentMethod === 'Cash' ? 'badge-emerald' : 'badge-indigo'}`}>
-                        {inv.paymentMethod}
+                      <span className={`badge ${
+                        inv.paymentMethod === 'Cash' ? 'badge-emerald' :
+                        inv.paymentMethod === 'UPI' ? 'badge-indigo' :
+                        inv.paymentMethod === 'Credit' ? 'badge-amber' : 'badge-indigo'
+                      }`}>
+                        {inv.paymentMethod === 'Credit' ? '⏳ Pay Later' : inv.paymentMethod}
                       </span>
                     </td>
                     <td>{inv.items.length} items</td>
@@ -333,10 +559,20 @@ _Thank you for choosing ${shopInfo.name}!_`;
                           className="btn btn-secondary btn-sm"
                           onClick={() => onViewInvoice(inv)}
                           style={{ gap: '4px' }}
-                          title="View & Print Bill"
+                          title="View Bill Details"
                         >
                           <Eye size={14} /> View
                         </button>
+                        {inv.paymentMethod === 'Credit' && onUpdateInvoice && (
+                          <button
+                            className="btn btn-emerald btn-sm"
+                            onClick={() => handleMarkAsPaid(inv)}
+                            style={{ gap: '4px', background: '#059669', color: '#fff' }}
+                            title="Clear Pay Later Due (Mark as Paid)"
+                          >
+                            <Check size={14} /> Clear Due
+                          </button>
+                        )}
                         <button
                           className="btn btn-emerald btn-sm"
                           onClick={() => handleQuickWhatsApp(inv)}
@@ -366,10 +602,10 @@ _Thank you for choosing ${shopInfo.name}!_`;
       {showPdfModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '850px' }}>
-            <div className="modal-header no-print">
+            <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Printer size={22} className="text-indigo-400" />
-                <h3 style={{ fontWeight: 700 }}>Professional Daily Sales PDF Preview</h3>
+                <FileDown size={22} className="text-indigo-400" />
+                <h3 style={{ fontWeight: 700 }}>Daily Sales PDF Preview</h3>
               </div>
               <button className="icon-btn" onClick={() => setShowPdfModal(false)}>
                 <X size={20} />
@@ -378,7 +614,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
 
             {/* Printable Daily Report Sheet */}
             <div className="modal-body invoice-printable-wrapper" style={{ background: '#f8fafc', padding: '2rem' }}>
-              <div className="invoice-sheet" style={{ maxWidth: '780px' }}>
+              <div ref={reportSheetRef} className="invoice-sheet" style={{ maxWidth: '780px' }}>
                 {/* Header */}
                 <div className="invoice-header-row">
                   <div>
@@ -399,7 +635,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
                 </div>
 
                 {/* KPI Overview Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', margin: '1.5rem 0', background: '#f1f5f9', padding: '1rem', borderRadius: '8px' }}>
+                <div className="report-kpi-grid" style={{ margin: '1.5rem 0', background: '#f1f5f9', padding: '1rem', borderRadius: '8px' }}>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Total Sales</p>
                     <p style={{ fontSize: '1.3rem', fontWeight: 800, color: '#047857' }}>{shopInfo.currencySymbol}{report.totalSales.toLocaleString('en-IN')}</p>
@@ -422,7 +658,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
                 <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.5rem', borderBottom: '2px solid #cbd5e1', paddingBottom: '0.3rem' }}>
                   Payment Method Collection Split
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                <div className="report-payment-grid" style={{ marginBottom: '1.5rem', fontSize: '0.85rem' }}>
                   <div style={{ border: '1px solid #e2e8f0', padding: '0.5rem', borderRadius: '4px' }}>
                     💵 Cash: <strong>{shopInfo.currencySymbol}{report.cashSales.toFixed(2)}</strong>
                   </div>
@@ -487,13 +723,13 @@ _Thank you for choosing ${shopInfo.name}!_`;
             </div>
 
             {/* Modal Footer */}
-            <div className="modal-footer no-print">
+            <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowPdfModal(false)}>
                 Close
               </button>
-              <button className="btn btn-primary" onClick={handleTriggerPrint}>
-                <Printer size={18} />
-                <span>Print / Save as PDF</span>
+              <button className="btn btn-primary" onClick={handleDownloadDailyPdf} disabled={isGeneratingPdf}>
+                {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Daily PDF Report'}</span>
               </button>
             </div>
           </div>

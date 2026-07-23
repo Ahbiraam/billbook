@@ -62,12 +62,12 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       <div className="header-actions">
-        <div className="badge badge-emerald" style={{ gap: '5px', padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}>
+        <div className="badge badge-emerald today-badge">
           <Sparkles size={14} />
           <span>Today: <strong>{shopInfo.currencySymbol}{todaySalesTotal.toLocaleString('en-IN')}</strong> ({todayInvoicesCount} bills)</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="header-icon-group">
           <button className="icon-btn" onClick={onOpenSettings} title="Store Settings">
             <Settings size={18} />
           </button>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Invoice, ShopInfo } from '../types';
-import { Printer, X, CheckCircle, FileText, Smartphone, Send, Copy, Check } from 'lucide-react';
+import { Download, X, CheckCircle, FileText, Smartphone, Send, Copy, Check, Loader2, Share2 } from 'lucide-react';
+import { generateAndDownloadPdf, generatePdfFile } from '../utils/pdfGenerator';
 
 interface InvoiceModalProps {
   invoice: Invoice | null;
@@ -10,14 +11,65 @@ interface InvoiceModalProps {
 
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, shopInfo, onClose }) => {
   const [printLayout, setPrintLayout] = useState<'A4' | 'Thermal'>('A4');
-  const [whatsappPhone, setWhatsappPhone] = useState<string>('');
-  const [showPhonePrompt, setShowPhonePrompt] = useState<boolean>(false);
+  const [whatsappPhone, setWhatsappPhone] = useState<string>(invoice?.customer?.phone || '');
   const [copied, setCopied] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [isSharingPdf, setIsSharingPdf] = useState<boolean>(false);
+
+  const invoiceSheetRef = useRef<HTMLDivElement>(null);
 
   if (!invoice) return null;
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (!invoiceSheetRef.current || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    try {
+      await generateAndDownloadPdf({
+        element: invoiceSheetRef.current,
+        filename: `${shopInfo.invoicePrefix || 'Invoice'}_${invoice.invoiceNumber}_${printLayout}.pdf`,
+        isThermal: printLayout === 'Thermal',
+      });
+    } catch (err) {
+      alert('Failed to generate PDF download. Please try again.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSharePdfWhatsApp = async () => {
+    if (!invoiceSheetRef.current || isSharingPdf) return;
+    setIsSharingPdf(true);
+
+    const fileName = `${shopInfo.invoicePrefix || 'Invoice'}_${invoice.invoiceNumber}.pdf`;
+
+    try {
+      const pdfFile = await generatePdfFile({
+        element: invoiceSheetRef.current,
+        filename: fileName,
+        isThermal: printLayout === 'Thermal',
+      });
+
+      // Check if Web Share API with files is supported (Mobile WhatsApp share)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `${shopInfo.name} Invoice ${invoice.invoiceNumber}`,
+          text: buildWhatsAppMessage(),
+          files: [pdfFile],
+        });
+      } else {
+        // Fallback for Desktop: Auto-download PDF + Open WhatsApp Web with text
+        await generateAndDownloadPdf({
+          element: invoiceSheetRef.current,
+          filename: fileName,
+          isThermal: printLayout === 'Thermal',
+        });
+        handleSendWhatsApp();
+      }
+    } catch (err) {
+      console.log('Share action ended or fallback');
+    } finally {
+      setIsSharingPdf(false);
+    }
   };
 
   const getCleanPhone = (phoneStr: string): string => {
@@ -56,12 +108,15 @@ _Thank you for shopping with ${shopInfo.name}!_`;
   };
 
   const handleSendWhatsApp = (targetPhone?: string) => {
-    const rawPhone = targetPhone || invoice.customer.phone || whatsappPhone;
-    const cleanPhone = getCleanPhone(rawPhone);
+    let rawPhone = targetPhone || whatsappPhone || invoice.customer.phone;
+    let cleanPhone = getCleanPhone(rawPhone);
 
     if (!cleanPhone) {
-      setShowPhonePrompt(true);
-      return;
+      const input = prompt('Enter customer WhatsApp mobile number:', whatsappPhone || '');
+      if (!input) return;
+      cleanPhone = getCleanPhone(input);
+      if (!cleanPhone) return;
+      setWhatsappPhone(input);
     }
 
     const messageText = buildWhatsAppMessage();
@@ -78,7 +133,6 @@ _Thank you for shopping with ${shopInfo.name}!_`;
     if (!win) {
       window.location.href = waWebUrl;
     }
-    setShowPhonePrompt(false);
   };
 
   const handleCopyMessage = () => {
@@ -124,7 +178,7 @@ _Thank you for shopping with ${shopInfo.name}!_`;
 
         {/* Modal Body: Printable Invoice View */}
         <div className="modal-body invoice-printable-wrapper" style={{ background: '#f8fafc', padding: '1.5rem' }}>
-          <div className={`invoice-sheet ${printLayout === 'Thermal' ? 'thermal' : ''}`}>
+          <div ref={invoiceSheetRef} className={`invoice-sheet ${printLayout === 'Thermal' ? 'thermal' : ''}`}>
             {/* Header Section */}
             <div className="invoice-header-row">
               <div>
@@ -238,36 +292,38 @@ _Thank you for shopping with ${shopInfo.name}!_`;
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="modal-footer no-print" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {showPhonePrompt ? (
-              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                <input
-                  type="tel"
-                  placeholder="Enter Mobile Number"
-                  className="form-input"
-                  style={{ width: '200px', padding: '0.45rem 0.75rem' }}
-                  value={whatsappPhone}
-                  onChange={(e) => setWhatsappPhone(e.target.value)}
-                />
-                <button
-                  className="btn btn-emerald btn-sm"
-                  onClick={() => handleSendWhatsApp(whatsappPhone)}
-                  style={{ background: '#25D366', color: '#fff' }}
-                >
-                  <Send size={14} /> Send
-                </button>
-              </div>
-            ) : (
+        <div className="modal-footer" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div className="modal-left-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-emerald"
+              onClick={handleSharePdfWhatsApp}
+              disabled={isSharingPdf}
+              style={{ background: '#075E54', color: '#fff' }}
+              title="Share generated PDF file directly to WhatsApp"
+            >
+              {isSharingPdf ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />}
+              <span>{isSharingPdf ? 'Preparing PDF...' : 'Share PDF WhatsApp'}</span>
+            </button>
+
+            <div className="whatsapp-input-group" style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <input
+                type="tel"
+                placeholder="WhatsApp Mobile #"
+                className="form-input"
+                style={{ width: '170px', padding: '0.45rem 0.75rem' }}
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+              />
               <button
                 className="btn btn-emerald"
-                onClick={() => handleSendWhatsApp()}
+                onClick={() => handleSendWhatsApp(whatsappPhone)}
                 style={{ background: '#25D366', color: '#fff' }}
+                title="Send formatted receipt to entered WhatsApp number"
               >
-                <Send size={18} />
+                <Send size={16} />
                 <span>Send WhatsApp</span>
               </button>
-            )}
+            </div>
 
             <button
               className="btn btn-secondary btn-sm"
@@ -283,9 +339,9 @@ _Thank you for shopping with ${shopInfo.name}!_`;
             <button className="btn btn-secondary" onClick={onClose}>
               Close
             </button>
-            <button className="btn btn-primary" onClick={handlePrint}>
-              <Printer size={18} />
-              <span>Print / Save PDF</span>
+            <button className="btn btn-primary" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+              {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Invoice'}</span>
             </button>
           </div>
         </div>
