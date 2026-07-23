@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { Invoice, ShopInfo, Product } from '../types';
 import { getDailyReportSummary } from '../utils/storage';
-import { Calendar, DollarSign, FileText, TrendingUp, Search, Eye, Award, Wallet, Smartphone, CreditCard, Clock, Send, X, Check, Copy, Download, FileDown, Loader2, Package, Plus } from 'lucide-react';
+import { Calendar, DollarSign, FileText, TrendingUp, Search, Eye, Award, Wallet, Smartphone, CreditCard, Clock, Send, X, Check, Copy, Download, FileDown, Loader2, Package, Plus, Trash2 } from 'lucide-react';
 import { generateAndDownloadPdf } from '../utils/pdfGenerator';
 
 interface DailyReportsProps {
@@ -10,6 +10,7 @@ interface DailyReportsProps {
   shopInfo: ShopInfo;
   onViewInvoice: (invoice: Invoice) => void;
   onUpdateInvoice?: (updatedInvoice: Invoice) => void;
+  onDeleteInvoice?: (invoiceId: string) => void;
   onSaveProduct?: (product: Product) => void;
 }
 
@@ -19,6 +20,7 @@ export const DailyReports: React.FC<DailyReportsProps> = ({
   shopInfo,
   onViewInvoice,
   onUpdateInvoice,
+  onDeleteInvoice,
   onSaveProduct,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -55,6 +57,13 @@ export const DailyReports: React.FC<DailyReportsProps> = ({
         status: 'Paid',
         paymentMethod: finalMethod,
       });
+    }
+  };
+
+  const handleDeleteInvoiceClick = (inv: Invoice) => {
+    if (!onDeleteInvoice) return;
+    if (window.confirm(`Are you sure you want to delete Bill ${inv.invoiceNumber}? This will restore product inventory stock.`)) {
+      onDeleteInvoice(inv.id);
     }
   };
 
@@ -119,7 +128,13 @@ ${itemsList}
 _Thank you for choosing ${shopInfo.name}!_`;
 
     const encoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/${cleanPhone}?text=${encoded}`, '_blank');
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      window.location.href = `whatsapp://send?phone=${cleanPhone}&text=${encoded}`;
+    } else {
+      window.open(`https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`, '_blank');
+    }
   };
 
   const handleCopyBillText = (inv: Invoice) => {
@@ -467,7 +482,7 @@ _Thank you for choosing ${shopInfo.name}!_`;
             </h3>
 
             {/* Quick View Filter Tabs */}
-            <div className="nav-tabs" style={{ marginTop: '0.6rem', border: 'none', background: 'rgba(0,0,0,0.15)', display: 'inline-flex' }}>
+            <div className="nav-tabs" style={{ marginTop: '0.6rem', border: 'none', background: 'rgba(0,0,0,0.15)', display: 'flex', width: '100%', overflowX: 'auto', flexWrap: 'nowrap' }}>
               <button
                 className={`nav-btn ${paymentFilter === 'All' ? 'active' : ''}`}
                 style={{ padding: '0.35rem 0.75rem', fontSize: '0.775rem' }}
@@ -588,6 +603,16 @@ _Thank you for choosing ${shopInfo.name}!_`;
                         >
                           {copiedInvoiceId === inv.id ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                         </button>
+                        {onDeleteInvoice && (
+                          <button
+                            className="icon-btn"
+                            style={{ color: 'var(--accent-rose)', width: '32px', height: '32px' }}
+                            onClick={() => handleDeleteInvoiceClick(inv)}
+                            title="Delete Bill & Restore Stock"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

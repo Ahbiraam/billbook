@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
 import type { Invoice, ShopInfo } from '../types';
-import { Download, X, CheckCircle, FileText, Smartphone, Send, Copy, Check, Loader2, Share2 } from 'lucide-react';
+import { Download, X, CheckCircle, FileText, Smartphone, Send, Copy, Check, Loader2, Share2, Trash2 } from 'lucide-react';
 import { generateAndDownloadPdf, generatePdfFile } from '../utils/pdfGenerator';
 
 interface InvoiceModalProps {
   invoice: Invoice | null;
   shopInfo: ShopInfo;
   onClose: () => void;
+  onDeleteInvoice?: (invoiceId: string) => void;
 }
 
-export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, shopInfo, onClose }) => {
+export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, shopInfo, onClose, onDeleteInvoice }) => {
   const [printLayout, setPrintLayout] = useState<'A4' | 'Thermal'>('A4');
   const [whatsappPhone, setWhatsappPhone] = useState<string>(invoice?.customer?.phone || '');
   const [copied, setCopied] = useState<boolean>(false);
@@ -19,6 +20,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, shopInfo, o
   const invoiceSheetRef = useRef<HTMLDivElement>(null);
 
   if (!invoice) return null;
+
+  const handleDeleteThisInvoice = () => {
+    if (!invoice || !onDeleteInvoice) return;
+    if (window.confirm(`Are you sure you want to delete Bill ${invoice.invoiceNumber}? This will restore product stock levels.`)) {
+      onDeleteInvoice(invoice.id);
+    }
+  };
 
   const handleDownloadPdf = async () => {
     if (!invoiceSheetRef.current || isGeneratingPdf) return;
@@ -121,17 +129,18 @@ _Thank you for shopping with ${shopInfo.name}!_`;
 
     const messageText = buildWhatsAppMessage();
     const encodedText = encodeURIComponent(messageText);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // Primary: wa.me link (works on mobile app & desktop WhatsApp Web)
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
-
-    // Fallback: web.whatsapp.com for desktop
-    const waWebUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
-
-    // Try opening wa.me URL
-    const win = window.open(waUrl, '_blank');
-    if (!win) {
-      window.location.href = waWebUrl;
+    if (isMobile) {
+      // Force native WhatsApp App on mobile directly without web login prompt
+      window.location.href = `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
+    } else {
+      // Desktop: Open WhatsApp Web
+      const waWebUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+      const win = window.open(waWebUrl, '_blank');
+      if (!win) {
+        window.location.href = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+      }
     }
   };
 
@@ -336,6 +345,16 @@ _Thank you for shopping with ${shopInfo.name}!_`;
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem' }}>
+            {onDeleteInvoice && (
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteThisInvoice}
+                title="Delete this bill and restore inventory stock"
+              >
+                <Trash2 size={16} />
+                <span>Delete Bill</span>
+              </button>
+            )}
             <button className="btn btn-secondary" onClick={onClose}>
               Close
             </button>

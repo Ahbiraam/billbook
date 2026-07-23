@@ -154,6 +154,35 @@ export const App: React.FC = () => {
     showToast(`Bill ${updatedInvoice.invoiceNumber} payment status updated!`);
   };
 
+  // Delete Invoice & Restore Product Stock
+  const handleDeleteInvoice = (invoiceId: string) => {
+    const invToDelete = invoices.find((i) => i.id === invoiceId);
+    if (!invToDelete) return;
+
+    const updatedInvoices = invoices.filter((i) => i.id !== invoiceId);
+    setInvoices(updatedInvoices);
+    saveInvoices(updatedInvoices);
+
+    // Restock items associated with deleted invoice
+    const updatedProducts = products.map((prod) => {
+      const item = invToDelete.items.find((it) => it.productId === prod.id);
+      if (item) {
+        return {
+          ...prod,
+          stock: prod.stock + item.quantity,
+        };
+      }
+      return prod;
+    });
+    setProducts(updatedProducts);
+    saveProducts(updatedProducts);
+
+    showToast(`Bill ${invToDelete.invoiceNumber} deleted and stock restored.`);
+    if (selectedInvoiceForModal?.id === invoiceId) {
+      setSelectedInvoiceForModal(null);
+    }
+  };
+
   // Calculate Today's Metrics for Header Badge
   const todayStr = new Date().toISOString().split('T')[0];
   const todayInvoices = invoices.filter((i) => i.dateString === todayStr && i.status !== 'Cancelled');
@@ -190,6 +219,7 @@ export const App: React.FC = () => {
             shopInfo={shopInfo}
             onViewInvoice={(inv) => setSelectedInvoiceForModal(inv)}
             onUpdateInvoice={handleUpdateInvoice}
+            onDeleteInvoice={handleDeleteInvoice}
             onSaveProduct={handleSaveProduct}
           />
         )}
@@ -209,6 +239,7 @@ export const App: React.FC = () => {
         invoice={selectedInvoiceForModal}
         shopInfo={shopInfo}
         onClose={() => setSelectedInvoiceForModal(null)}
+        onDeleteInvoice={handleDeleteInvoice}
       />
 
       {/* Shop Settings Modal */}
